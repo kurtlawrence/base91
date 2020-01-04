@@ -187,4 +187,12 @@ mod tests {
             assert_eq!(&decoded[..], &buf[..]);
         }
     }
+
+    #[test]
+    fn all_bytes() {
+        let buf = (0..=255).chain((0..=255).rev()).collect::<Vec<u8>>();
+        let encoded = slice_encode(&buf);
+        let decoded = slice_decode(&encoded);
+        assert_eq!(decoded, buf);
+    }
 }
