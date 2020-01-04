@@ -5,6 +5,7 @@
 
 use std::iter::Iterator;
 
+#[rustfmt::skip]
 const ENTAB: [u8; 91] = [
     b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H', b'I', b'J', b'K', b'L', b'M',
     b'N', b'O', b'P', b'Q', b'R', b'S', b'T', b'U', b'V', b'W', b'X', b'Y', b'Z',
@@ -15,6 +16,7 @@ const ENTAB: [u8; 91] = [
     b'>', b'?', b'@', b'[', b']', b'^', b'_', b'`', b'{', b'|', b'}', b'~', b'"'
 ];
 
+#[rustfmt::skip]
 const DETAB: [u8; 256] = [
     91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91,
     91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91,
@@ -34,11 +36,10 @@ const DETAB: [u8; 256] = [
     91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91
 ];
 
-
 pub fn iter_encode<I, O>(data: I, mut out: O)
 where
-    I: Iterator<Item=u8>,
-    O: FnMut(u8)
+    I: Iterator<Item = u8>,
+    O: FnMut(u8),
 {
     let mut key: u32;
     let mut rem: u32 = 0;
@@ -73,11 +74,10 @@ where
     }
 }
 
-
 pub fn iter_decode<I, O>(data: I, mut out: O)
 where
-    I: Iterator<Item=u8>,
-    O: FnMut(u8)
+    I: Iterator<Item = u8>,
+    O: FnMut(u8),
 {
     let mut buf: i32 = -1;
     let mut key: i32;
@@ -105,7 +105,7 @@ where
                 shift -= 8;
 
                 shift > 7
-            } {};
+            } {}
 
             buf = -1;
         }
@@ -116,7 +116,6 @@ where
     }
 }
 
-
 pub fn slice_encode(value: &[u8]) -> Vec<u8> {
     let mut result = Vec::with_capacity(value.len() * 13 / 10);
 
@@ -125,7 +124,6 @@ pub fn slice_encode(value: &[u8]) -> Vec<u8> {
     result
 }
 
-
 pub fn slice_decode(value: &[u8]) -> Vec<u8> {
     let mut result = Vec::with_capacity(value.len());
 
@@ -133,7 +131,6 @@ pub fn slice_decode(value: &[u8]) -> Vec<u8> {
 
     result
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -186,8 +183,8 @@ mod tests {
                 let value = hasher.finish();
                 let bytes = value.to_ne_bytes();
 
-                for j in 0 .. 8 {
-                    buf[i*8 + j] = bytes[j];
+                for j in 0..8 {
+                    buf[i * 8 + j] = bytes[j];
                 }
             }
 
