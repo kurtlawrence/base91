@@ -22,4 +22,9 @@ all-features = true
 [dependencies]
 
 [dev-dependencies]
+criterion = "0.3"
 rand = "0.7"
+
+[[bench]]
+name = "benching"
+harness = false
