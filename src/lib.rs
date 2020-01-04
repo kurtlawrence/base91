@@ -171,21 +171,14 @@ mod tests {
 
     #[test]
     fn test_integrity() {
-        use std::collections::hash_map::RandomState;
-        use std::hash::{BuildHasher, Hasher};
-
-        let mut buf: [u8; 256] = [0; 256];
+        use rand::*;
+        const LEN: usize = 1024;
+        let mut rng = thread_rng();
+        let mut buf = [0u8; LEN];
 
         for _ in 0..10000 {
-            for i in 0..32 {
-                let mut hasher = RandomState::new().build_hasher();
-                hasher.write_u32(1);
-                let value = hasher.finish();
-                let bytes = value.to_ne_bytes();
-
-                for j in 0..8 {
-                    buf[i * 8 + j] = bytes[j];
-                }
+            for i in 0..LEN {
+                buf[i] = rng.gen();
             }
 
             let encoded = slice_encode(&buf);

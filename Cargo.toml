@@ -20,3 +20,6 @@ documentation = "https://docs.rs/base91/"
 all-features = true
 
 [dependencies]
+
+[dev-dependencies]
+rand = "0.7"
