@@ -3,8 +3,6 @@
 //! Joachim Henke's basE91 encoding implementation for Rust
 //! http://base91.sourceforge.net
 
-use std::iter::Iterator;
-
 #[rustfmt::skip]
 const ENTAB: [u8; 91] = [
     b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H', b'I', b'J', b'K', b'L', b'M',
@@ -36,7 +34,69 @@ const DETAB: [u8; 256] = [
     91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91, 91
 ];
 
-pub fn iter_encode<I, O>(data: I, mut out: O)
+pub struct Encoder<I> {
+    data: I,
+    secondary: Option<u8>,
+    rem: u32,
+    shift: u32,
+}
+
+impl<I> Iterator for Encoder<I>
+where
+    I: Iterator<Item = u8>,
+{
+    type Item = u8;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<u8> {
+        let mut x = self;
+        if x.secondary.is_some() {
+            return x.secondary.take();
+        }
+
+        while let Some(b) = x.data.next() {
+            x.rem |= (b as u32) << x.shift;
+            x.shift += 8;
+
+            if x.shift > 13 {
+                let mut key = x.rem & 8191;
+                if key > 88 {
+                    x.rem >>= 13;
+                    x.shift -= 13;
+                } else {
+                    key = x.rem & 16383;
+                    x.rem >>= 14;
+                    x.shift -= 14;
+                }
+
+                x.secondary = Some(ENTAB[(key / 91) as usize]);
+                return Some(ENTAB[(key % 91) as usize]);
+            }
+        }
+
+        if x.shift > 0 {
+            let r = Some(ENTAB[(x.rem % 91) as usize]);
+            if x.shift > 7 || x.rem > 90 {
+                x.secondary = Some(ENTAB[(x.rem / 91) as usize]);
+            }
+            x.shift = 0;
+            r
+        } else {
+            None
+        }
+    }
+}
+
+pub fn iter_encode<I>(data: I) -> Encoder<I> {
+    Encoder {
+        data,
+        secondary: None,
+        rem: 0,
+        shift: 0,
+    }
+}
+
+pub fn iter_encode_old<I, O>(data: I, mut out: O)
 where
     I: Iterator<Item = u8>,
     O: FnMut(u8),
@@ -117,11 +177,7 @@ where
 }
 
 pub fn slice_encode(value: &[u8]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(value.len() * 13 / 10);
-
-    iter_encode(value.iter().map(|v| *v), |v| result.push(v));
-
-    result
+    iter_encode(value.iter().map(|x| *x)).collect()
 }
 
 pub fn slice_decode(value: &[u8]) -> Vec<u8> {
