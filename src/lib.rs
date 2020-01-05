@@ -36,7 +36,8 @@ const DETAB: [u8; 256] = [
 
 pub struct Encoder<I> {
     data: I,
-    secondary: Option<u8>,
+    secondary: u8,
+    has_secondary: bool,
     rem: u32,
     shift: u32,
 }
@@ -50,8 +51,9 @@ where
     #[inline(always)]
     fn next(&mut self) -> Option<u8> {
         let mut x = self;
-        if x.secondary.is_some() {
-            return x.secondary.take();
+        if x.has_secondary {
+            x.has_secondary = false;
+            return Some(x.secondary);
         }
 
         while let Some(b) = x.data.next() {
@@ -69,7 +71,8 @@ where
                     x.shift -= 14;
                 }
 
-                x.secondary = Some(ENTAB[(key / 91) as usize]);
+                x.secondary = ENTAB[(key / 91) as usize];
+                x.has_secondary = true;
                 return Some(ENTAB[(key % 91) as usize]);
             }
         }
@@ -77,7 +80,8 @@ where
         if x.shift > 0 {
             let r = Some(ENTAB[(x.rem % 91) as usize]);
             if x.shift > 7 || x.rem > 90 {
-                x.secondary = Some(ENTAB[(x.rem / 91) as usize]);
+                x.has_secondary = true;
+                x.secondary = ENTAB[(x.rem / 91) as usize];
             }
             x.shift = 0;
             r
@@ -90,7 +94,8 @@ where
 pub fn iter_encode<I>(data: I) -> Encoder<I> {
     Encoder {
         data,
-        secondary: None,
+        secondary: 0,
+        has_secondary: false,
         rem: 0,
         shift: 0,
     }
