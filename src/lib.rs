@@ -146,9 +146,8 @@ pub struct Decoder<I> {
     buf: i32,
     rem: i32,
     shift: i32,
-    draw_down: VecDeque<u8>
-//     pending_arr: [u8; 1],
-//     pending
+    pending_arr: [u8; 2],
+    pending_len: usize,
 }
 
 impl<I> Iterator for Decoder<I> where
@@ -159,8 +158,10 @@ I: Iterator<Item = u8>
     #[inline(always)]
     fn next(&mut self) -> Option<u8> {
         let mut x = self;
-        if x.draw_down.len() > 0 {
-            return x.draw_down.pop_front();
+
+        if x.pending_len > 0 {
+            x.pending_len -= 1;
+            return Some(x.pending_arr[x.pending_len]);
         }
 
         while let Some(b) = x.data.next() {
@@ -177,8 +178,6 @@ I: Iterator<Item = u8>
                 x.rem |= x.buf << x.shift;
                 x.shift += if (x.buf & 8191) > 88 { 13 } else { 14 };
 
-
-
 //                 let loopcount = x.shift / 8;
 //                 x.shift = x.shift % 8;
 //                 let rem = x.rem;
@@ -188,20 +187,30 @@ I: Iterator<Item = u8>
 //                     x.draw_down.push_back((rem >> y * 8) as u8);
 //                 }
 
-
-
-//                 (0..=loopcount).map(|y| rem >> (y * 8)).for_each(|y| x.draw_down.push_back(y as u8));
-//                 x.rem >>= 8 * loopcount;
-
-                while {
-                    x.draw_down.push_back(x.rem as u8);
-                    x.rem >>= 8;
-                    x.shift -= 8;
-                    x.shift > 7
-                } {}
+                let rem: i32 = x.rem;
+                match x.shift / 8 {
+                    1 => {
+                        x.pending_len = 0;
+                        x.rem >>= 8;
+                        x.shift -= 8;
+                    }
+                    2 => {
+                        x.pending_len = 1;
+                        x.pending_arr[0] = (rem >> 8) as u8;
+                        x.rem >>= 16;
+                        x.shift -= 16;
+                    }
+//                     3 => {
+//                         x.pending_len = 2;
+//                         x.pending_arr = [(rem >> 8) as u8, (rem >> 16) as u8];
+//                         x.rem >>= 24;
+//                         x.shift -= 24;
+//                     }
+                    _ => unreachable!("x.shift / 8 is _always_ [1,2,3]")
+                }
 
                 x.buf = -1;
-                return x.draw_down.pop_front(); // always is one
+                return Some(rem as u8);
             }
         }
 
@@ -221,7 +230,8 @@ pub fn iter_decode<I>(data: I) -> Decoder<I> {
         buf: -1,
         rem: 0,
         shift: 0,
-        draw_down: VecDeque::with_capacity(0),
+        pending_arr: [0;2],
+        pending_len: 0,
     }
 }
 
