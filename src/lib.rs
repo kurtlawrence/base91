@@ -3,6 +3,8 @@
 //! Joachim Henke's basE91 encoding implementation for Rust
 //! http://base91.sourceforge.net
 
+use std::collections::VecDeque;
+
 #[rustfmt::skip]
 const ENTAB: [u8; 91] = [
     b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H', b'I', b'J', b'K', b'L', b'M',
@@ -139,7 +141,91 @@ where
     }
 }
 
-pub fn iter_decode<I, O>(data: I, mut out: O)
+pub struct Decoder<I> {
+    data: I,
+    buf: i32,
+    rem: i32,
+    shift: i32,
+    draw_down: VecDeque<u8>
+//     pending_arr: [u8; 1],
+//     pending
+}
+
+impl<I> Iterator for Decoder<I> where
+I: Iterator<Item = u8>
+{
+    type Item = u8;
+
+    #[inline(always)]
+    fn next(&mut self) -> Option<u8> {
+        let mut x = self;
+        if x.draw_down.len() > 0 {
+            return x.draw_down.pop_front();
+        }
+
+        while let Some(b) = x.data.next() {
+            let key = DETAB[b as usize] as i32;
+            // skip any bytes that aren't captured in the 91 chars
+            if key == 91 {
+                continue;
+            }
+
+            if x.buf == -1 {
+                x.buf = key;
+            } else {
+                x.buf += key * 91;
+                x.rem |= x.buf << x.shift;
+                x.shift += if (x.buf & 8191) > 88 { 13 } else { 14 };
+
+
+
+//                 let loopcount = x.shift / 8;
+//                 x.shift = x.shift % 8;
+//                 let rem = x.rem;
+//                 x.rem >>= loopcount * 8;
+// 
+//                 for y in 0..loopcount {
+//                     x.draw_down.push_back((rem >> y * 8) as u8);
+//                 }
+
+
+
+//                 (0..=loopcount).map(|y| rem >> (y * 8)).for_each(|y| x.draw_down.push_back(y as u8));
+//                 x.rem >>= 8 * loopcount;
+
+                while {
+                    x.draw_down.push_back(x.rem as u8);
+                    x.rem >>= 8;
+                    x.shift -= 8;
+                    x.shift > 7
+                } {}
+
+                x.buf = -1;
+                return x.draw_down.pop_front(); // always is one
+            }
+        }
+
+        if x.buf != -1 {
+            let r = Some((x.rem | x.buf << x.shift) as u8);
+            x.buf = -1;
+            r
+        } else {
+            None
+        }
+    }
+}
+
+pub fn iter_decode<I>(data: I) -> Decoder<I> {
+    Decoder {
+        data,
+        buf: -1,
+        rem: 0,
+        shift: 0,
+        draw_down: VecDeque::with_capacity(0),
+    }
+}
+
+pub fn iter_decode_old<I, O>(data: I, mut out: O)
 where
     I: Iterator<Item = u8>,
     O: FnMut(u8),
@@ -186,11 +272,7 @@ pub fn slice_encode(value: &[u8]) -> Vec<u8> {
 }
 
 pub fn slice_decode(value: &[u8]) -> Vec<u8> {
-    let mut result = Vec::with_capacity(value.len());
-
-    iter_decode(value.iter().map(|v| *v), |v| result.push(v));
-
-    result
+    iter_decode(value.iter().map(|v| *v)).collect()
 }
 
 #[cfg(test)]

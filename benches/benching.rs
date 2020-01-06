@@ -2,7 +2,7 @@
 extern crate criterion;
 
 use base91::*;
-use criterion::Criterion;
+use criterion::{Criterion};
 
 fn benchmark(c: &mut Criterion) {
     let upwards: Vec<u8> = (0..=255u8).collect();
@@ -24,8 +24,11 @@ fn benchmark(c: &mut Criterion) {
     });
 
     let encoded = slice_encode(&large);
+    c.bench_function("decode iter orig", |b| {
+        b.iter(|| iter_decode_old(encoded.iter().map(|x| *x), |_| ()))
+    });
     c.bench_function("decode iter", |b| {
-        b.iter(|| iter_decode(encoded.iter().map(|x| *x), |_| ()))
+        b.iter(|| iter_decode(encoded.iter().map(|x| *x)).for_each(|_| ()))
     });
 }
 
