@@ -146,12 +146,13 @@ pub struct Decoder<I> {
     buf: i32,
     rem: i32,
     shift: i32,
-    pending_arr: [u8; 2],
-    pending_len: usize,
+    secondary: u8,
+    has_secondary: bool,
 }
 
-impl<I> Iterator for Decoder<I> where
-I: Iterator<Item = u8>
+impl<I> Iterator for Decoder<I>
+where
+    I: Iterator<Item = u8>,
 {
     type Item = u8;
 
@@ -159,9 +160,9 @@ I: Iterator<Item = u8>
     fn next(&mut self) -> Option<u8> {
         let mut x = self;
 
-        if x.pending_len > 0 {
-            x.pending_len -= 1;
-            return Some(x.pending_arr[x.pending_len]);
+        if x.has_secondary {
+            x.has_secondary = false;
+            return Some(x.secondary);
         }
 
         while let Some(b) = x.data.next() {
@@ -178,35 +179,16 @@ I: Iterator<Item = u8>
                 x.rem |= x.buf << x.shift;
                 x.shift += if (x.buf & 8191) > 88 { 13 } else { 14 };
 
-//                 let loopcount = x.shift / 8;
-//                 x.shift = x.shift % 8;
-//                 let rem = x.rem;
-//                 x.rem >>= loopcount * 8;
-// 
-//                 for y in 0..loopcount {
-//                     x.draw_down.push_back((rem >> y * 8) as u8);
-//                 }
-
                 let rem: i32 = x.rem;
-                match x.shift / 8 {
-                    1 => {
-                        x.pending_len = 0;
-                        x.rem >>= 8;
-                        x.shift -= 8;
-                    }
-                    2 => {
-                        x.pending_len = 1;
-                        x.pending_arr[0] = (rem >> 8) as u8;
-                        x.rem >>= 16;
-                        x.shift -= 16;
-                    }
-//                     3 => {
-//                         x.pending_len = 2;
-//                         x.pending_arr = [(rem >> 8) as u8, (rem >> 16) as u8];
-//                         x.rem >>= 24;
-//                         x.shift -= 24;
-//                     }
-                    _ => unreachable!("x.shift / 8 is _always_ [1,2,3]")
+                // shift will always be between 8..24
+                if x.shift < 16 {
+                    x.rem >>= 8;
+                    x.shift -= 8;
+                } else {
+                    x.has_secondary = true;
+                    x.secondary = (rem >> 8) as u8;
+                    x.rem >>= 16;
+                    x.shift -= 16;
                 }
 
                 x.buf = -1;
@@ -230,8 +212,8 @@ pub fn iter_decode<I>(data: I) -> Decoder<I> {
         buf: -1,
         rem: 0,
         shift: 0,
-        pending_arr: [0;2],
-        pending_len: 0,
+        secondary: 0,
+        has_secondary: false,
     }
 }
 
@@ -347,5 +329,17 @@ mod tests {
         let encoded = slice_encode(&buf);
         let decoded = slice_decode(&encoded);
         assert_eq!(decoded, buf);
+    }
+
+    #[test]
+    fn test_byte_pairing() {
+        for a in 0..=255u8 {
+            for b in 0..=255u8 {
+                let buf = [a, b];
+                let encoded = slice_encode(&buf);
+                let decoded = slice_decode(&encoded);
+                assert_eq!(&buf, decoded.as_slice());
+            }
+        }
     }
 }

@@ -2,7 +2,7 @@
 extern crate criterion;
 
 use base91::*;
-use criterion::{Criterion};
+use criterion::Criterion;
 
 fn benchmark(c: &mut Criterion) {
     let upwards: Vec<u8> = (0..=255u8).collect();
